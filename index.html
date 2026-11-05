@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Curriculum Sales & Expense 360° Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800">
+
+  <!-- CONFIGURATION -->
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxuKNPeOXZQYu1VZua5_FLYCAUINh2J1eeBcoXWFRLRNjvL8yOzw2WAQ-zP31aQbdFCcw/exec";
+
+    const USERS = [
+      { id: 1, name: "Mazher", role: "AGM", city: "Regional HQ", pin: "1001", isManager: true },
+      { id: 2, name: "Deepinder Yadav", role: "Dy. AGM", city: "Regional HQ", pin: "1002", isManager: true },
+      { id: 3, name: "Shashank", role: "Executive", city: "Ujjain", pin: "2001", isManager: false },
+      { id: 4, name: "Varun", role: "Executive", city: "Baramati", pin: "2002", isManager: false },
+      { id: 5, name: "Aman", role: "Executive", city: "Gorakhpur", pin: "2003", isManager: false },
+      { id: 6, name: "Imran", role: "Executive", city: "Delhi", pin: "2004", isManager: false },
+      { id: 7, name: "Hasan", role: "Executive", city: "Lucknow", pin: "2005", isManager: false },
+      { id: 8, name: "Naveen", role: "Executive", city: "Jaipur", pin: "2006", isManager: false },
+      { id: 9, name: "Shreyas", role: "Executive", city: "Indore", pin: "2007", isManager: false },
+      { id: 10, name: "Milind", role: "Executive", city: "Field Sales", pin: "2008", isManager: false }
+    ];
+
+    let currentUser = null;
+    let currentLocationUrl = "";
+    let currentLat = null;
+    let currentLng = null;
+    let globalRecords = [];
+    let registeredSchools = [];
+  </script>
+
+  <!-- TOP HEADER -->
+  <header class="bg-indigo-900 text-white px-4 py-3 flex justify-between items-center shadow sticky top-0 z-50">
+    <div class="flex items-center gap-3">
+      <div>
+        <h1 class="text-base font-bold tracking-tight">Curriculum Sales 360° Portal</h1>
+        <p id="userStatus" class="text-xs text-indigo-200">Not logged in</p>
+      </div>
+
+      <!-- Manager Dual View Switcher -->
+      <div id="managerToggleBtns" class="hidden ml-4 bg-indigo-950 p-1 rounded-lg text-xs flex gap-1 border border-indigo-700">
+        <button onclick="showManagerDashboardView()" id="btnViewDashboard" class="px-2.5 py-1 rounded bg-indigo-600 text-white font-medium">360° Team Hub</button>
+        <button onclick="showManagerLogVisitView()" id="btnViewLogVisit" class="px-2.5 py-1 rounded text-indigo-200 hover:text-white font-medium">Log Visit</button>
+      </div>
+
+      <!-- Executive Switcher -->
+      <div id="repToggleBtns" class="hidden ml-4 bg-indigo-950 p-1 rounded-lg text-xs flex gap-1 border border-indigo-700">
+        <button onclick="showRepSummaryView()" id="btnRepSummary" class="px-2.5 py-1 rounded bg-indigo-600 text-white font-medium">My 360° Planner</button>
+        <button onclick="showRepFormView()" id="btnRepForm" class="px-2.5 py-1 rounded text-indigo-200 hover:text-white font-medium">Log Visit</button>
+      </div>
+    </div>
+    <button id="logoutBtn" onclick="logout()" class="hidden bg-indigo-700 hover:bg-indigo-600 text-xs px-3 py-1.5 rounded text-white font-semibold">Logout</button>
+  </header>
+
+  <!-- LOGIN SCREEN -->
+  <main id="loginScreen" class="max-w-md mx-auto p-4 mt-8">
+    <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+      <h2 class="text-lg font-semibold mb-4 text-center">Team Login</h2>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Select Member</label>
+          <select id="loginUserSelect" class="w-full border rounded-lg p-2.5 text-sm bg-white font-medium text-slate-800">
+            <option value="">-- Choose Member --</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">4-Digit PIN</label>
+          <input type="password" id="loginPin" maxlength="4" class="w-full border rounded-lg p-2.5 text-sm tracking-widest text-center font-bold" placeholder="••••" />
+        </div>
+        <p id="loginError" class="text-red-500 text-xs hidden text-center font-semibold">Incorrect PIN. Please re-enter.</p>
+        <button onclick="handleLogin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg text-sm transition shadow">Enter Portal</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- VISIT & EXPENSE FORM SCREEN -->
+  <main id="visitFormScreen" class="max-w-xl mx-auto p-4 hidden">
+    <div class="bg-white p-5 rounded-xl shadow-md border border-slate-200">
+      <div class="flex justify-between items-center pb-3 border-b mb-4">
+        <div>
+          <h2 class="font-bold text-slate-800">Log Field Visit & Expenses</h2>
+          <span id="repBadge" class="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded font-medium"></span>
+        </div>
+        <span class="text-xs text-emerald-600 font-medium">⚡ Auto Photo Compression ON</span>
+      </div>
+
+      <form id="visitForm" onsubmit="submitVisit(event)" class="space-y-4 text-sm">
+        
+        <!-- 1. Travel & Expense Claims -->
+        <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-3">
+          <div class="flex justify-between items-center">
+            <p class="text-xs font-bold text-slate-700 uppercase tracking-wide">1. Travel & Expense</p>
+            <span class="text-xs font-bold text-emerald-700" id="grandTotalDisplay">Total: ₹ 0.00</span>
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-600 mb-1 font-semibold">Mode of Travel</label>
+            <select id="travelMode" onchange="toggleTravelMode()" class="w-full border rounded p-2 text-xs bg-white font-medium" required>
+              <option value="Bike">Own Bike (₹4.00 / KM)</option>
+              <option value="Car">Own Car (₹8.00 / KM)</option>
+              <option value="Train">Train (Ticket Reimbursement)</option>
+              <option value="Bus">Intercity Bus (Ticket Reimbursement)</option>
+              <option value="CabAuto">Cab / Auto / Local Transit</option>
+            </select>
+          </div>
+
+          <!-- KM Readings & Mandatory Checks for Bike/Car -->
+          <div id="kmInputsBlock" class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">Opening KM <span class="text-red-500">*</span></label>
+              <input type="number" step="any" id="openingKm" oninput="calcTotalExpenses()" class="w-full border rounded p-2 text-xs" placeholder="e.g. 14200" />
+              <label class="block text-[10px] text-slate-600 font-semibold mt-1">Opening KM Photo <span class="text-red-500">*</span></label>
+              <input type="file" id="openKmImg" accept="image/*" class="text-[10px] w-full text-slate-500" />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">Closing KM <span class="text-red-500">*</span></label>
+              <input type="number" step="any" id="closingKm" oninput="calcTotalExpenses()" class="w-full border rounded p-2 text-xs" placeholder="e.g. 14350" />
+              <label class="block text-[10px] text-slate-600 font-semibold mt-1">Closing KM Photo <span class="text-red-500">*</span></label>
+              <input type="file" id="closeKmImg" accept="image/*" class="text-[10px] w-full text-slate-500" />
+            </div>
+          </div>
+
+          <!-- Other Travel Expenses -->
+          <div class="pt-2 border-t border-slate-200">
+            <p class="text-[11px] font-semibold text-slate-600 mb-2">Tolls, Parking, Transit & Daily Allowance</p>
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="block text-[10px] text-slate-500 mb-0.5">Toll & Parking (₹)</label>
+                <input type="number" step="any" id="tollParking" oninput="calcTotalExpenses()" class="w-full border rounded p-1.5 text-xs" placeholder="0" />
+              </div>
+              <div>
+                <label class="block text-[10px] text-slate-500 mb-0.5">Train / Bus / Cab (₹)</label>
+                <input type="number" step="any" id="trainBusTickets" oninput="calcTotalExpenses()" class="w-full border rounded p-1.5 text-xs" placeholder="0" />
+              </div>
+              <div>
+                <label class="block text-[10px] text-slate-500 mb-0.5">Food / DA (₹)</label>
+                <input type="number" step="any" id="foodExpenses" oninput="calcTotalExpenses()" class="w-full border rounded p-1.5 text-xs" placeholder="0" />
+              </div>
+            </div>
+
+            <div class="mt-2">
+              <label class="block text-[10px] text-slate-500 mb-1">Upload Expense Bills / Receipts:</label>
+              <input type="file" id="receiptImg" accept="image/*" class="text-[10px] w-full text-slate-500" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. School & Academic Profile -->
+        <div class="space-y-3">
+          <p class="text-xs font-bold text-slate-700 uppercase tracking-wide">2. School & Academic Profile</p>
+          
+          <!-- Live Location Fetch Button & Proximity Notice -->
+          <div class="bg-blue-50 p-2.5 rounded-lg border border-blue-200">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-blue-900">Current GPS Location</p>
+                <span id="locStatus" class="text-[11px] text-slate-500">Not captured yet</span>
+              </div>
+              <button type="button" onclick="fetchLiveLocation()" id="locBtn" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2.5 py-1.5 rounded font-medium flex items-center gap-1 shadow-sm">
+                <span>📍</span> Fetch Location
+              </button>
+            </div>
+            <div id="proximityAlert" class="hidden mt-2 p-2 bg-emerald-100 border border-emerald-300 rounded text-xs text-emerald-900 flex justify-between items-center">
+              <span id="proximityText">Detected nearby school</span>
+              <button type="button" onclick="acceptProximityMatch()" class="bg-emerald-700 text-white px-2 py-0.5 rounded text-[10px] font-bold">Auto-Fill</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-xs text-slate-600 mb-1 font-semibold">Pincode <span class="text-red-500">*</span></label>
+              <input type="number" id="pincode" oninput="handlePincodeChange()" class="w-full border rounded p-2 text-xs" placeholder="e.g. 465333" required />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 mb-1 font-semibold">City/Town <span class="text-red-500">*</span></label>
+              <input type="text" id="visitCity" class="w-full border rounded p-2 text-xs" placeholder="e.g. Shujalpur" required />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 mb-1 font-semibold text-indigo-900">School ID</label>
+              <input type="text" id="schoolIdPreview" class="w-full border rounded p-2 text-xs bg-indigo-50 font-bold text-indigo-700" readonly value="SC###-#" />
+              <input type="hidden" id="existingSchoolId" value="" />
+            </div>
+          </div>
+
+          <!-- Existing School Dropdown for 2nd/Follow-up Visits -->
+          <div id="existingSchoolSelectBox" class="hidden bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+            <label class="block text-xs text-amber-900 font-bold mb-1">Repeat Visit? Select Registered School in this Zone:</label>
+            <select id="existingSchoolSelect" onchange="selectExistingSchool()" class="w-full border rounded p-2 text-xs bg-white font-medium text-slate-800">
+              <option value="">-- Or enter new school details below --</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-600 mb-1 font-semibold">School Name <span class="text-red-500">*</span></label>
+            <input type="text" id="schoolName" class="w-full border rounded p-2 text-xs" placeholder="Full name of school" required />
+          </div>
+
+          <!-- Mandatory Contact Number & School Email -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-slate-600 mb-1 font-semibold text-indigo-900">School Contact No. <span class="text-red-500">* (10 digits)</span></label>
+              <input type="tel" id="contactNumber" maxlength="10" pattern="[0-9]{10}" class="w-full border rounded p-2 text-xs font-mono font-bold" placeholder="9876543210" required />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 mb-1 font-semibold text-indigo-900">School Email ID <span class="text-slate-400 font-normal">(Optional)</span></label>
+              <input type="email" id="schoolEmail" class="w-full border rounded p-2 text-xs" placeholder="school@example.com" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-slate-600 mb-1 font-semibold text-indigo-900">Education Board <span class="text-red-500">*</span></label>
+              <select id="schoolBoard" class="w-full border rounded p-2 text-xs bg-white font-medium text-slate-800" required>
+                <option value="CBSE">CBSE</option>
+                <option value="State Board">State Board</option>
+                <option value="ICSE">ICSE</option>
+                <option value="Sanskrit Board">Sanskrit Board</option>
+                <option value="IB / Cambridge">IB / Cambridge</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 mb-1 font-semibold text-indigo-900">Meeting Done With <span class="text-red-500">*</span></label>
+              <select id="meetingDoneWith" class="w-full border rounded p-2 text-xs bg-white font-medium text-slate-800" required>
+                <option value="Principal">Principal</option>
+                <option value="Academic Coordinator">Academic Coordinator</option>
+                <option value="Director - Owner">Director - Owner</option>
+                <option value="Teacher">Teacher</option>
+                <option value="No Meeting">No Meeting</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-600 mb-1 font-semibold text-indigo-900">Client Stage <span class="text-red-500">*</span></label>
+            <select id="clientStage" onchange="toggleDemoDate()" class="w-full border rounded p-2 text-xs bg-white font-medium text-slate-800" required>
+              <option value="New Prospect">New Prospect</option>
+              <option value="1st Visit Done">1st Visit Done</option>
+              <option value="Specimen Given">Specimen / Sample Given</option>
+              <option value="Demo Scheduled">Demo Scheduled</option>
+              <option value="Demo Done">Demo Done</option>
+              <option value="Decision Pending">Decision Pending (Trustee)</option>
+              <option value="Deal Won">Deal Won (PO Received)</option>
+              <option value="Deal Lost">Deal Lost</option>
+            </select>
+          </div>
+
+          <div id="demoDateField" class="hidden bg-amber-50 p-2.5 rounded border border-amber-200">
+            <label class="block text-xs text-amber-900 font-semibold mb-1">Scheduled Demo Date & Time</label>
+            <input type="datetime-local" id="demoDate" class="w-full border rounded p-2 text-xs bg-white" />
+          </div>
+
+          <!-- Student Strength Breakup -->
+          <div class="bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-100">
+            <p class="text-xs font-semibold text-indigo-900 mb-1.5">Student Strength Breakdown</p>
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="block text-[10px] text-slate-600 mb-0.5">Total Strength <span class="text-red-500">*</span></label>
+                <input type="number" id="totalStudents" class="w-full border rounded p-1.5 text-xs font-semibold" placeholder="e.g. 850" required />
+              </div>
+              <div>
+                <label class="block text-[10px] text-slate-600 mb-0.5">6th–10th <span class="text-red-500">*</span></label>
+                <input type="number" id="strength6to10" class="w-full border rounded p-1.5 text-xs font-semibold" placeholder="e.g. 400" required />
+              </div>
+              <div>
+                <label class="block text-[10px] text-slate-600 mb-0.5">11th–12th</label>
+                <input type="number" id="strength11to12" class="w-full border rounded p-1.5 text-xs" placeholder="e.g. 150" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Pre-Selected Grades Checkboxes -->
+          <div>
+            <label class="block text-xs text-slate-600 mb-1 font-semibold">Grades Running (Pre-Selection)</label>
+            <div class="grid grid-cols-3 gap-2 text-xs bg-slate-50 p-2.5 rounded border border-slate-200">
+              <label class="flex items-center gap-1.5"><input type="checkbox" name="gradePill" value="Nursery-KG" /> Nursery-KG</label>
+              <label class="flex items-center gap-1.5"><input type="checkbox" name="gradePill" value="1st to 5th" /> 1st to 5th</label>
+              <label class="flex items-center gap-1.5"><input type="checkbox" name="gradePill" value="6th to 8th" checked /> 6th to 8th</label>
+              <label class="flex items-center gap-1.5"><input type="checkbox" name="gradePill" value="9th to 10th" checked /> 9th to 10th</label>
+              <label class="flex items-center gap-1.5"><input type="checkbox" name="gradePill" value="11th to 12th" /> 11th to 12th</label>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-slate-600 mb-1 font-semibold">Expected Deal Value (₹) <span class="text-red-500">*</span></label>
+              <input type="number" id="expectedValue" class="w-full border rounded p-2 text-xs font-semibold text-emerald-800" placeholder="e.g. 150000" required />
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 mb-1">Existing Competitor Books</label>
+              <input type="text" id="competitorBooks" class="w-full border rounded p-2 text-xs" placeholder="e.g. NCERT, Cordova..." />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">School Front / Board Photo <span class="text-red-500">*</span></label>
+            <input type="file" id="frontImg" accept="image/*" class="text-xs w-full text-slate-500" required />
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-600 mb-1">Meeting Remarks & Feedback <span class="text-red-500">*</span></label>
+            <textarea id="meetingRemarks" rows="2" class="w-full border rounded p-2 text-xs" placeholder="Key takeaways, curriculum requirements..." required></textarea>
+          </div>
+
+          <div>
+            <label class="block text-xs text-slate-600 mb-1 font-semibold">Next Follow-Up Date <span class="text-red-500">*</span></label>
+            <input type="date" id="followUpDate" class="w-full border rounded p-2 text-xs font-medium" required />
+          </div>
+        </div>
+
+        <button type="submit" id="submitBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg text-sm shadow transition">
+          Submit Visit & Travel Claim
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <!-- EXECUTIVE 360° PERSONAL PLANNER SCREEN -->
+  <main id="repSummaryScreen" class="max-w-5xl mx-auto p-4 hidden space-y-5">
+    <div class="flex justify-between items-center">
+      <div>
+        <h2 class="text-xl font-bold text-slate-800">Executive 360° Field Command</h2>
+        <p class="text-xs text-slate-500">Your daily visit velocity, pipeline, upcoming demos & submitted claims</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="exportRepCSV()" class="bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition flex items-center gap-1 shadow-sm font-semibold">
+          <span>📥</span> Export My CSV
+        </button>
+        <button onclick="fetchSheetData()" class="bg-indigo-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition font-semibold">
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Executive KPI Row -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="bg-white p-3 rounded-lg border shadow-sm">
+        <p class="text-xs text-slate-500">Visited Today</p>
+        <p id="repVisitsToday" class="text-xl font-bold text-indigo-600">0</p>
+        <span class="text-[10px] text-slate-400" id="repTotalVisitsLabel">Total visits: 0</span>
+      </div>
+      <div class="bg-white p-3 rounded-lg border shadow-sm">
+        <p class="text-xs text-slate-500">My Demos Scheduled</p>
+        <p id="repDemosCount" class="text-xl font-bold text-amber-600">0</p>
+        <span class="text-[10px] text-slate-400">Ready for presentation</span>
+      </div>
+      <div class="bg-white p-3 rounded-lg border shadow-sm">
+        <p class="text-xs text-slate-500">Meetings: Done vs None</p>
+        <p id="repMeetingRatio" class="text-xl font-bold text-slate-800">0 / 0</p>
+        <span class="text-[10px] text-slate-400">Done / Gatekeeper drop</span>
+      </div>
+      <div class="bg-white p-3 rounded-lg border shadow-sm">
+        <p class="text-xs text-slate-500">My Submitted Claims</p>
+        <p id="repClaimsTotal" class="text-xl font-bold text-emerald-600">₹ 0</p>
+        <span class="text-[10px] text-slate-400" id="repPipelineTotal">Pipeline: ₹ 0</span>
+      </div>
+    </div>
+
+    <!-- Two-Column 360° Planner: Upcoming Demos & Follow-Ups -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="bg-amber-50/70 px-4 py-3 border-b flex justify-between items-center">
+          <h3 class="text-xs font-bold text-amber-900 uppercase tracking-wide flex items-center gap-1.5">
+            <span>📅</span> My Upcoming Demos
+          </h3>
+          <span id="repDemoBadge" class="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-bold">0</span>
+        </div>
+        <div class="divide-y divide-slate-100 max-h-72 overflow-y-auto" id="repDemoList">
+          <p class="p-4 text-xs text-center text-slate-400">No scheduled demos pending.</p>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="bg-indigo-50/70 px-4 py-3 border-b flex justify-between items-center">
+          <h3 class="text-xs font-bold text-indigo-900 uppercase tracking-wide flex items-center gap-1.5">
+            <span>⏰</span> Follow-Up Commitments
+          </h3>
+          <span id="repFollowupBadge" class="text-[10px] bg-indigo-200 text-indigo-900 px-2 py-0.5 rounded-full font-bold">0</span>
+        </div>
+        <div class="divide-y divide-slate-100 max-h-72 overflow-y-auto" id="repFollowupList">
+          <p class="p-4 text-xs text-center text-slate-400">No pending follow-ups.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detailed Personal Visit History Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+      <div class="bg-slate-50 px-4 py-3 border-b flex justify-between items-center">
+        <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">My Complete Visit & Claim Log</h3>
+      </div>
+      <table class="w-full text-left border-collapse text-xs">
+        <thead class="bg-slate-50 border-b text-slate-600">
+          <tr>
+            <th class="p-3">Date</th>
+            <th class="p-3">School ID</th>
+            <th class="p-3">School Name</th>
+            <th class="p-3">Contact</th>
+            <th class="p-3">Board</th>
+            <th class="p-3">Meeting With</th>
+            <th class="p-3">Stage</th>
+            <th class="p-3">Claim (₹)</th>
+            <th class="p-3">Proofs</th>
+          </tr>
+        </thead>
+        <tbody id="repDetailedTableBody" class="divide-y divide-slate-100">
+          <tr>
+            <td colspan="9" class="p-4 text-center text-slate-400">Loading your history...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- MANAGER 360° COMMAND CENTER -->
+  <main id="managerScreen" class="max-w-7xl mx-auto p-4 hidden space-y-5">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+      <div>
+        <h2 class="text-xl font-bold text-slate-800">Manager 360° Operations Command</h2>
+        <p class="text-xs text-slate-500">Click any school name to view the full inspection form, contact details, and photos</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <select id="managerFilterRep" onchange="renderManagerData()" class="border rounded-lg p-2 text-xs bg-white font-medium shadow-sm">
+          <option value="ALL">All Executives (Whole Team)</option>
+          <option value="Mazher">Mazher (AGM)</option>
+          <option value="Deepinder Yadav">Deepinder Yadav (Dy. AGM)</option>
+          <option value="Shashank">Shashank (Ujjain)</option>
+          <option value="Varun">Varun (Baramati)</option>
+          <option value="Aman">Aman (Gorakhpur)</option>
+          <option value="Imran">Imran (Delhi)</option>
+          <option value="Hasan">Hasan (Lucknow)</option>
+          <option value="Naveen">Naveen (Jaipur)</option>
+          <option value="Shreyas">Shreyas (Indore)</option>
+          <option value="Milind">Milind (Field Sales)</option>
+        </select>
+        <button onclick="exportToCSV()" class="bg-emerald-600 text-white text-xs px-3 py-2 rounded-lg hover:bg-emerald-700 transition flex items-center gap-1 shadow-sm font-semibold">
+          <span>📥</span> Export Team CSV
+        </button>
+        <button onclick="fetchSheetData()" class="bg-indigo-600 text-white text-xs px-3 py-2 rounded-lg hover:bg-indigo-700 transition font-semibold">Refresh</button>
+      </div>
+    </div>
+
+    <!-- Manager Live 360° Overview KPIs -->
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+      <div class="bg-white p-3 rounded-lg border shadow-sm">
+        <p class="text-[11px] text-slate-500">Total Visits</p>
+        <p id="kpiVisits" class="text-xl font-bold text-slate-800">0</p>
+      </div>
+      <div class="bg-white p-3 rounded-lg border shadow-sm">
+        <p class="text-[11px] text-slate-500">Meetings: Done vs None</p>
+        <p id="kpiMeetingRatio" class="text-xl font-bold text-indigo-700">0 / 0</p>
+      </div>
+      <div class="bg-white p-3 rounded-lg border shadow-sm">
+        <p class="text-[11px] text-slate-500">Demos: Sched / Done</p>
+        <p id="kpiDemos" class="text-xl font-bold text-amber-600">0 / 0</p>
+      </div>
+      <div class="bg-white p-3 rounded-lg border shadow-sm">
+        <p class="text-[11px] text-slate-500">Pipeline Deal Value</p>
+        <p id="kpiPipelineVal" class="text-xl font-bold text-emerald-700">₹ 0</p>
+      </div>
+      <div class="bg-white p-3 rounded-lg border shadow-sm">
+        <p class="text-[11px] text-slate-500">KM Fuel Claims</p>
+        <p id="kpiKmClaim" class="text-xl font-bold text-blue-600">₹ 0</p>
+      </div>
+      <div class="bg-white p-3 rounded-lg border shadow-sm col-span-2 md:col-span-1">
+        <p class="text-[11px] text-slate-500">Grand Total Claims</p>
+        <p id="kpiGrandTotal" class="text-xl font-bold text-purple-700">₹ 0</p>
+      </div>
+    </div>
+
+    <!-- SECTION 1: Rep Performance Matrix -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="bg-slate-50 px-4 py-3 border-b">
+        <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wide">Executive Performance & Claim Matrix</h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead class="bg-slate-100 border-b text-slate-600">
+            <tr>
+              <th class="p-3">Executive</th>
+              <th class="p-3">City</th>
+              <th class="p-3 text-center">Visits</th>
+              <th class="p-3 text-center text-emerald-700">Meetings Done</th>
+              <th class="p-3 text-center text-red-600">No Meeting</th>
+              <th class="p-3 text-center text-amber-700">Demos Sched</th>
+              <th class="p-3 text-center text-indigo-700">Demos Done</th>
+              <th class="p-3 text-right">Pipeline Value (₹)</th>
+              <th class="p-3 text-right text-purple-700">Total Claims (₹)</th>
+            </tr>
+          </thead>
+          <tbody id="managerRepMatrixBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SECTION 2: Scheduled Demo Board -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="bg-amber-50 px-4 py-3 border-b flex justify-between items-center">
+        <h3 class="text-xs font-bold text-amber-900 uppercase tracking-wide flex items-center gap-1.5">
+          <span>📅</span> Live Demo Pipeline: Who Scheduled What Demo
+        </h3>
+        <span id="managerDemoCountBadge" class="bg-amber-200 text-amber-900 text-xs px-2.5 py-0.5 rounded-full font-bold">0 Demos</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead class="bg-amber-50/50 border-b text-amber-900 font-semibold">
+            <tr>
+              <th class="p-3">Demo Date</th>
+              <th class="p-3">Executive</th>
+              <th class="p-3">School Name (Click to Inspect)</th>
+              <th class="p-3">Phone & Email</th>
+              <th class="p-3">Board</th>
+              <th class="p-3">Exp. Value (₹)</th>
+              <th class="p-3">Stage</th>
+            </tr>
+          </thead>
+          <tbody id="managerDemoBoardBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SECTION 3: All School Visits Log -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="bg-slate-50 px-4 py-3 border-b">
+        <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wide">All Field Visit Records</h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead class="bg-slate-50 border-b text-slate-600">
+            <tr>
+              <th class="p-3">School ID</th>
+              <th class="p-3">Date</th>
+              <th class="p-3">Executive</th>
+              <th class="p-3">School Name (Click to Inspect)</th>
+              <th class="p-3">Contact</th>
+              <th class="p-3">Meeting With</th>
+              <th class="p-3">Stage</th>
+              <th class="p-3">Claim (₹)</th>
+              <th class="p-3">Proofs</th>
+            </tr>
+          </thead>
+          <tbody id="managerTableBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- MANAGER DETAIL INSPECTION MODAL (FULL FORM POPUP) -->
+  <div id="schoolDetailModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200">
+      <div class="bg-indigo-900 text-white p-4 flex justify-between items-start rounded-t-xl sticky top-0 z-10">
+        <div>
+          <span id="modalSchoolId" class="text-xs bg-indigo-800 text-indigo-200 px-2 py-0.5 rounded font-mono font-bold"></span>
+          <h3 id="modalSchoolName" class="text-lg font-bold mt-1"></h3>
+          <p id="modalLocationSubtitle" class="text-xs text-indigo-200"></p>
+        </div>
+        <button onclick="closeDetailModal()" class="text-indigo-200 hover:text-white text-2xl font-bold leading-none">&times;</button>
+      </div>
+
+      <div class="p-5 space-y-4 text-xs">
+        
+        <!-- Key Snapshot Details -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+          <div>
+            <p class="text-slate-500 text-[10px]">Education Board</p>
+            <p id="modalBoard" class="font-bold text-slate-800 text-sm"></p>
+          </div>
+          <div>
+            <p class="text-slate-500 text-[10px]">Direct Phone</p>
+            <p id="modalContact" class="font-bold text-indigo-700 text-sm"></p>
+          </div>
+          <div>
+            <p class="text-slate-500 text-[10px]">School Email</p>
+            <p id="modalEmail" class="font-bold text-indigo-700 text-sm"></p>
+          </div>
+          <div>
+            <p class="text-slate-500 text-[10px]">Client Stage</p>
+            <p id="modalStage" class="font-bold text-amber-800 text-sm"></p>
+          </div>
+          <div>
+            <p class="text-slate-500 text-[10px]">Meeting Done With</p>
+            <p id="modalMeetingWith" class="font-bold text-slate-800"></p>
+          </div>
+          <div>
+            <p class="text-slate-500 text-[10px]">Expected Deal Value</p>
+            <p id="modalExpectedValue" class="font-bold text-emerald-700 text-sm"></p>
+          </div>
+        </div>
+
+        <!-- Student Strength Breakdown -->
+        <div class="bg-indigo-50/50 p-3 rounded-lg border border-indigo-100">
+          <p class="font-bold text-indigo-950 mb-2">Student Strength & Academic Coverage</p>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-white p-2 rounded border">
+              <span class="text-slate-400 text-[10px] block">Total Students</span>
+              <span id="modalTotalStudents" class="font-bold text-sm text-slate-800"></span>
+            </div>
+            <div class="bg-white p-2 rounded border">
+              <span class="text-slate-400 text-[10px] block">6th–10th</span>
+              <span id="modalStrength610" class="font-bold text-sm text-slate-800"></span>
+            </div>
+            <div class="bg-white p-2 rounded border">
+              <span class="text-slate-400 text-[10px] block">11th–12th</span>
+              <span id="modalStrength1112" class="font-bold text-sm text-slate-800"></span>
+            </div>
+          </div>
+          <p class="mt-2 text-slate-600">Running Grades: <span id="modalGrades" class="font-medium text-slate-800"></span></p>
+          <p class="text-slate-600">Competitor Books: <span id="modalCompetitor" class="font-medium text-slate-800"></span></p>
+        </div>
+
+        <!-- Remarks & Commitments -->
+        <div class="space-y-1">
+          <p class="font-bold text-slate-700">Executive Remarks & Next Action:</p>
+          <p id="modalRemarks" class="bg-slate-50 p-3 rounded-lg border text-slate-700 leading-relaxed"></p>
+          <div class="flex justify-between items-center pt-1 text-slate-500">
+            <span>Follow-Up Commitment: <strong id="modalFollowupDate" class="text-indigo-800 font-bold"></strong></span>
+            <span>Demo Date: <strong id="modalDemoDate" class="text-amber-800 font-bold"></strong></span>
+          </div>
+        </div>
+
+        <!-- Photos Gallery -->
+        <div>
+          <p class="font-bold text-slate-700 mb-2">Attached Verification Proofs:</p>
+          <div class="grid grid-cols-3 gap-2" id="modalPhotoGallery"></div>
+        </div>
+
+        <div class="pt-2 border-t flex justify-between items-center">
+          <span id="modalLocationLinkContainer"></span>
+          <button onclick="closeDetailModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg font-bold">Close Inspection</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION LOGIC -->
+  <script>
+    const userSelect = document.getElementById("loginUserSelect");
+    USERS.forEach(u => {
+      const opt = document.createElement("option");
+      opt.value = u.id;
+      opt.textContent = `${u.name} (${u.role} - ${u.city})`;
+      userSelect.appendChild(opt);
+    });
+
+    function handleLogin() {
+      const uid = parseInt(document.getElementById("loginUserSelect").value);
+      const pin = document.getElementById("loginPin").value;
+      const user = USERS.find(u => u.id === uid && u.pin === pin);
+
+      if (!user) {
+        document.getElementById("loginError").classList.remove("hidden");
+        return;
+      }
+
+      currentUser = user;
+      document.getElementById("loginError").classList.add("hidden");
+      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("logoutBtn").classList.remove("hidden");
+      document.getElementById("userStatus").textContent = `${user.name} | ${user.role} (${user.city})`;
+
+      if (user.city !== "Regional HQ" && user.city !== "Field Sales") {
+        document.getElementById("visitCity").value = user.city;
+      }
+
+      if (user.isManager) {
+        document.getElementById("managerToggleBtns").classList.remove("hidden");
+        document.getElementById("repToggleBtns").classList.add("hidden");
+        showManagerDashboardView();
+      } else {
+        document.getElementById("repToggleBtns").classList.remove("hidden");
+        document.getElementById("managerToggleBtns").classList.add("hidden");
+        showRepSummaryView();
+      }
+    }
+
+    function showManagerDashboardView() {
+      hideAllScreens();
+      document.getElementById("managerScreen").classList.remove("hidden");
+      document.getElementById("btnViewDashboard").className = "px-2.5 py-1 rounded bg-indigo-600 text-white font-medium";
+      document.getElementById("btnViewLogVisit").className = "px-2.5 py-1 rounded text-indigo-200 hover:text-white font-medium";
+      fetchSheetData();
+    }
+
+    function showManagerLogVisitView() {
+      hideAllScreens();
+      document.getElementById("visitFormScreen").classList.remove("hidden");
+      document.getElementById("repBadge").textContent = `${currentUser.name} (Manager Log)`;
+      document.getElementById("btnViewLogVisit").className = "px-2.5 py-1 rounded bg-indigo-600 text-white font-medium";
+      document.getElementById("btnViewDashboard").className = "px-2.5 py-1 rounded text-indigo-200 hover:text-white font-medium";
+    }
+
+    function showRepFormView() {
+      hideAllScreens();
+      document.getElementById("visitFormScreen").classList.remove("hidden");
+      document.getElementById("repBadge").textContent = `${currentUser.name} - ${currentUser.city}`;
+      document.getElementById("btnRepForm").className = "px-2.5 py-1 rounded bg-indigo-600 text-white font-medium";
+      document.getElementById("btnRepSummary").className = "px-2.5 py-1 rounded text-indigo-200 hover:text-white font-medium";
+    }
+
+    function showRepSummaryView() {
+      hideAllScreens();
+      document.getElementById("repSummaryScreen").classList.remove("hidden");
+      document.getElementById("btnRepSummary").className = "px-2.5 py-1 rounded bg-indigo-600 text-white font-medium";
+      document.getElementById("btnRepForm").className = "px-2.5 py-1 rounded text-indigo-200 hover:text-white font-medium";
+      fetchSheetData();
+    }
+
+    function hideAllScreens() {
+      document.getElementById("visitFormScreen").classList.add("hidden");
+      document.getElementById("managerScreen").classList.add("hidden");
+      document.getElementById("repSummaryScreen").classList.add("hidden");
+    }
+
+    function logout() {
+      currentUser = null;
+      document.getElementById("loginPin").value = "";
+      hideAllScreens();
+      document.getElementById("managerToggleBtns").classList.add("hidden");
+      document.getElementById("repToggleBtns").classList.add("hidden");
+      document.getElementById("logoutBtn").classList.add("hidden");
+      document.getElementById("userStatus").textContent = "Not logged in";
+      document.getElementById("loginScreen").classList.remove("hidden");
+    }
+
+    function handlePincodeChange() {
+      const pin = document.getElementById("pincode").value.trim();
+      const schoolSelectBox = document.getElementById("existingSchoolSelectBox");
+      const schoolSelect = document.getElementById("existingSchoolSelect");
+      const previewInput = document.getElementById("schoolIdPreview");
+
+      if (pin.length < 3) {
+        previewInput.value = "SC###-#";
+        schoolSelectBox.classList.add("hidden");
+        return;
+      }
+
+      const zonePrefix = pin.substring(0, 3);
+      previewInput.value = "SC" + zonePrefix + "-#";
+
+      const zoneSchools = registeredSchools.filter(s => String(s.pincode).startsWith(zonePrefix));
+
+      if (zoneSchools.length > 0) {
+        schoolSelect.innerHTML = `<option value="">-- Repeat Visit? Select School to Auto-Fill Details --</option>`;
+        zoneSchools.forEach(s => {
+          const opt = document.createElement("option");
+          opt.value = s.schoolId;
+          opt.textContent = `${s.schoolName} (${s.schoolId}) - ${s.city}`;
+          schoolSelect.appendChild(opt);
+        });
+        schoolSelectBox.classList.remove("hidden");
+      } else {
+        schoolSelectBox.classList.add("hidden");
+        document.getElementById("existingSchoolId").value = "";
+      }
+    }
+
+    function selectExistingSchool() {
+      const selectedId = document.getElementById("existingSchoolSelect").value;
+      if (!selectedId) {
+        document.getElementById("existingSchoolId").value = "";
+        return;
+      }
+
+      const school = registeredSchools.find(s => s.schoolId === selectedId);
+      if (school) {
+        document.getElementById("existingSchoolId").value = school.schoolId;
+        document.getElementById("schoolIdPreview").value = school.schoolId;
+        document.getElementById("schoolName").value = school.schoolName;
+        if (school.contactNumber) document.getElementById("contactNumber").value = school.contactNumber;
+        if (school.schoolEmail) document.getElementById("schoolEmail").value = school.schoolEmail;
+        if (school.board) document.getElementById("schoolBoard").value = school.board;
+        if (school.city) document.getElementById("visitCity").value = school.city;
+        if (school.totalStudents) document.getElementById("totalStudents").value = school.totalStudents;
+        if (school.strength610) document.getElementById("strength6to10").value = school.strength610;
+        if (school.strength1112) document.getElementById("strength11to12").value = school.strength1112;
+      }
+    }
+
+    function fetchLiveLocation() {
+      const locBtn = document.getElementById("locBtn");
+      const locStatus = document.getElementById("locStatus");
+
+      if (!navigator.geolocation) {
+        locStatus.textContent = "GPS not supported";
+        locStatus.className = "text-[11px] text-red-600 font-semibold";
+        return;
+      }
+
+      locBtn.disabled = true;
+      locStatus.textContent = "Fetching coordinates...";
+      locStatus.className = "text-[11px] text-amber-600 font-medium";
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          currentLat = position.coords.latitude;
+          currentLng = position.coords.longitude;
+          const latStr = currentLat.toFixed(6);
+          const lngStr = currentLng.toFixed(6);
+          currentLocationUrl = `https://www.google.com/maps?q=${latStr},${lngStr}`;
+          locStatus.innerHTML = `<span class="text-emerald-700 font-bold">✓ Attached (${latStr}, ${lngStr})</span>`;
+          locBtn.disabled = false;
+
+          checkProximityToKnownSchools(currentLat, currentLng);
+        },
+        () => {
+          locStatus.textContent = "Permission denied / GPS off";
+          locStatus.className = "text-[11px] text-red-600 font-semibold";
+          locBtn.disabled = false;
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+
+    function getDistanceMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const rad = Math.PI / 180;
+      const dLat = (lat2 - lat1) * rad;
+      const dLon = (lon2 - lon1) * rad;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * rad) * Math.cos(lat2 * rad) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    let detectedNearSchool = null;
+    function checkProximityToKnownSchools(lat, lng) {
+      detectedNearSchool = null;
+      for (const s of registeredSchools) {
+        if (s.lat && s.lng) {
+          const dist = getDistanceMeters(lat, lng, s.lat, s.lng);
+          if (dist <= 300) {
+            detectedNearSchool = s;
+            break;
+          }
+        }
+      }
+
+      const alertBox = document.getElementById("proximityAlert");
+      if (detectedNearSchool) {
+        document.getElementById("proximityText").textContent = `📍 Near "${detectedNearSchool.schoolName}" (${detectedNearSchool.schoolId}). Return visit?`;
+        alertBox.classList.remove("hidden");
+      } else {
+        alertBox.classList.add("hidden");
+      }
+    }
+
+    function acceptProximityMatch() {
+      if (!detectedNearSchool) return;
+      document.getElementById("existingSchoolId").value = detectedNearSchool.schoolId;
+      document.getElementById("schoolIdPreview").value = detectedNearSchool.schoolId;
+      document.getElementById("schoolName").value = detectedNearSchool.schoolName;
+      if (detectedNearSchool.contactNumber) document.getElementById("contactNumber").value = detectedNearSchool.contactNumber;
+      if (detectedNearSchool.schoolEmail) document.getElementById("schoolEmail").value = detectedNearSchool.schoolEmail;
+      if (detectedNearSchool.board) document.getElementById("schoolBoard").value = detectedNearSchool.board;
+      if (detectedNearSchool.pincode) document.getElementById("pincode").value = detectedNearSchool.pincode;
+      if (detectedNearSchool.city) document.getElementById("visitCity").value = detectedNearSchool.city;
+      if (detectedNearSchool.totalStudents) document.getElementById("totalStudents").value = detectedNearSchool.totalStudents;
+      if (detectedNearSchool.strength610) document.getElementById("strength6to10").value = detectedNearSchool.strength610;
+      if (detectedNearSchool.strength1112) document.getElementById("strength11to12").value = detectedNearSchool.strength1112;
+      document.getElementById("proximityAlert").classList.add("hidden");
+    }
+
+    function toggleTravelMode() {
+      const mode = document.getElementById("travelMode").value;
+      const kmBlock = document.getElementById("kmInputsBlock");
+      const openKm = document.getElementById("openingKm");
+      const closeKm = document.getElementById("closingKm");
+      const openImg = document.getElementById("openKmImg");
+      const closeImg = document.getElementById("closeKmImg");
+
+      if (mode === "Bike" || mode === "Car") {
+        kmBlock.classList.remove("hidden");
+        openKm.required = true;
+        closeKm.required = true;
+        openImg.required = true;
+        closeImg.required = true;
+      } else {
+        kmBlock.classList.add("hidden");
+        openKm.required = false;
+        closeKm.required = false;
+        openImg.required = false;
+        closeImg.required = false;
+        openKm.value = "";
+        closeKm.value = "";
+      }
+      calcTotalExpenses();
+    }
+
+    function calcTotalExpenses() {
+      const mode = document.getElementById("travelMode").value;
+      const open = parseFloat(document.getElementById("openingKm").value) || 0;
+      const close = parseFloat(document.getElementById("closingKm").value) || 0;
+      
+      let kmClaim = 0;
+      if (mode === "Bike" || mode === "Car") {
+        const rate = (mode === "Car") ? 8.0 : 4.0;
+        const netKm = close >= open ? (close - open) : 0;
+        kmClaim = netKm * rate;
+      }
+
+      const toll = parseFloat(document.getElementById("tollParking").value) || 0;
+      const tickets = parseFloat(document.getElementById("trainBusTickets").value) || 0;
+      const food = parseFloat(document.getElementById("foodExpenses").value) || 0;
+
+      const grandTotal = kmClaim + toll + tickets + food;
+      document.getElementById("grandTotalDisplay").textContent = `Total: ₹ ${grandTotal.toFixed(2)}`;
+    }
+
+    function toggleDemoDate() {
+      const stage = document.getElementById("clientStage").value;
+      const demoBox = document.getElementById("demoDateField");
+      if (stage === "Demo Scheduled" || stage === "Demo Done") {
+        demoBox.classList.remove("hidden");
+      } else {
+        demoBox.classList.add("hidden");
+      }
+    }
+
+    function compressImageFile(file, maxWidth = 1200, maxHeight = 1200, quality = 0.7) {
+      return new Promise((resolve) => {
+        if (!file) return resolve("");
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+          const img = new Image();
+          img.src = event.target.result;
+          img.onload = () => {
+            let width = img.width;
+            let height = img.height;
+            if (width > height) {
+              if (width > maxWidth) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
+              }
+            } else {
+              if (height > maxHeight) {
+                width = Math.round((width * maxHeight) / height);
+                height = maxHeight;
+              }
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL("image/jpeg", quality));
+          };
+          img.onerror = () => resolve("");
+        };
+        reader.onerror = () => resolve("");
+      });
+    }
+
+    async function submitVisit(e) {
+      e.preventDefault();
+
+      const contactVal = document.getElementById("contactNumber").value.trim();
+      if (!/^\d{10}$/.test(contactVal)) {
+        alert("Validation Error: Please enter a valid 10-digit mobile number for the school.");
+        document.getElementById("contactNumber").focus();
+        return;
+      }
+
+      const mode = document.getElementById("travelMode").value;
+      const openImgFile = document.getElementById("openKmImg").files[0];
+      const closeImgFile = document.getElementById("closeKmImg").files[0];
+
+      if ((mode === "Bike" || mode === "Car") && (!openImgFile || !closeImgFile)) {
+        alert("Rule Violation: Opening and Closing KM pictures are MANDATORY for Bike and Car travel.");
+        return;
+      }
+
+      const btn = document.getElementById("submitBtn");
+      btn.disabled = true;
+      btn.textContent = "Compressing photos & saving...";
+
+      const receiptImgFile = document.getElementById("receiptImg").files[0];
+      const frontImgFile = document.getElementById("frontImg").files[0];
+
+      const selectedGrades = Array.from(document.querySelectorAll('input[name="gradePill"]:checked'))
+        .map(cb => cb.value)
+        .join(", ");
+
+      const [openKmBase64, closeKmBase64, receiptBase64, frontImgBase64] = await Promise.all([
+        compressImageFile(openImgFile),
+        compressImageFile(closeImgFile),
+        compressImageFile(receiptImgFile),
+        compressImageFile(frontImgFile)
+      ]);
+
+      const payload = {
+        repName: currentUser.name,
+        role: currentUser.role,
+        city: document.getElementById("visitCity").value,
+        pincode: document.getElementById("pincode").value,
+        existingSchoolId: document.getElementById("existingSchoolId").value,
+        schoolName: document.getElementById("schoolName").value,
+        contactNumber: contactVal,
+        schoolEmail: document.getElementById("schoolEmail").value.trim(),
+        board: document.getElementById("schoolBoard").value,
+        entityType: "School",
+        meetingDoneWith: document.getElementById("meetingDoneWith").value,
+        clientStage: document.getElementById("clientStage").value,
+        demoDate: document.getElementById("demoDate").value,
+        expectedValue: document.getElementById("expectedValue").value,
+        totalStudents: document.getElementById("totalStudents").value,
+        strength6to10: document.getElementById("strength6to10").value,
+        strength11to12: document.getElementById("strength11to12").value,
+        grades: selectedGrades,
+        competitorBooks: document.getElementById("competitorBooks").value,
+        meetingRemarks: document.getElementById("meetingRemarks").value,
+        followUpDate: document.getElementById("followUpDate").value,
+        travelMode: mode,
+        openingKm: document.getElementById("openingKm").value,
+        closingKm: document.getElementById("closingKm").value,
+        tollParking: document.getElementById("tollParking").value,
+        trainBusTickets: document.getElementById("trainBusTickets").value,
+        foodExpenses: document.getElementById("foodExpenses").value,
+        locationUrl: currentLocationUrl || "Not Fetched",
+        latitude: currentLat || "",
+        longitude: currentLng || "",
+        openKmImg: openKmBase64,
+        closeKmImg: closeKmBase64,
+        receiptImg: receiptBase64,
+        frontImg: frontImgBase64
+      };
+
+      try {
+        await fetch(SCRIPT_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        alert(`Visit and travel claim successfully saved!`);
+        document.getElementById("visitForm").reset();
+        currentLocationUrl = "";
+        currentLat = null;
+        currentLng = null;
+        document.getElementById("locStatus").textContent = "Not captured yet";
+        document.getElementById("proximityAlert").classList.add("hidden");
+        document.getElementById("existingSchoolSelectBox").classList.add("hidden");
+        document.getElementById("existingSchoolId").value = "";
+        calcTotalExpenses();
+        showRepSummaryView();
+      } catch (err) {
+        alert("Submission failed. Check network connection.");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Submit Visit & Travel Claim";
+      }
+    }
+
+    async function fetchSheetData() {
+      try {
+        const res = await fetch(SCRIPT_URL);
+        globalRecords = await res.json();
+        buildRegisteredSchoolsIndex();
+
+        if (currentUser && currentUser.isManager) {
+          renderManagerData();
+        } else {
+          renderRepSummaryData();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function buildRegisteredSchoolsIndex() {
+      registeredSchools = [];
+      const seen = new Set();
+      globalRecords.forEach(r => {
+        const id = r["School ID"];
+        if (id && !seen.has(id)) {
+          seen.add(id);
+          registeredSchools.push({
+            schoolId: id,
+            schoolName: r["School/Firm Name"] || "",
+            contactNumber: r["Contact Number"] || "",
+            schoolEmail: r["School Email"] || "",
+            pincode: r["Pincode"] || "",
+            city: r["City"] || "",
+            board: r["Board"] || "CBSE",
+            totalStudents: r["Total Strength"] || "",
+            strength610: r["Strength 6-10th"] || "",
+            strength1112: r["Strength 11-12th"] || "",
+            lat: parseFloat(r["Latitude"]) || null,
+            lng: parseFloat(r["Longitude"]) || null
+          });
+        }
+      });
+    }
+
+    // --- EXECUTIVE 360° PLANNER LOGIC ---
+    function renderRepSummaryData() {
+      const myRecords = globalRecords.filter(r => r["Rep Name"] === currentUser.name);
+      const todayStr = new Date().toDateString();
+      let visitsToday = 0, meetingsDone = 0, noMeetings = 0, demosScheduled = 0, totalClaims = 0, totalPipeline = 0;
+
+      const demoListContainer = document.getElementById("repDemoList");
+      const followupContainer = document.getElementById("repFollowupList");
+      const repTbody = document.getElementById("repDetailedTableBody");
+
+      demoListContainer.innerHTML = "";
+      followupContainer.innerHTML = "";
+      repTbody.innerHTML = "";
+
+      let demoCount = 0, followupCount = 0;
+
+      myRecords.forEach(r => {
+        const visitDateObj = r["Timestamp"] ? new Date(r["Timestamp"]) : null;
+        if (visitDateObj && visitDateObj.toDateString() === todayStr) visitsToday++;
+        if (r["Meeting Done With"] === "No Meeting") noMeetings++; else meetingsDone++;
+
+        const stage = r["Client Stage"] || "";
+        if (stage === "Demo Scheduled") demosScheduled++;
+
+        totalClaims += parseFloat(r["Total Claim (₹)"]) || 0;
+        totalPipeline += parseFloat(r["Expected Value (₹)"]) || 0;
+
+        const phone = r["Contact Number"] || "";
+        const callBtn = phone ? `<a href="tel:${phone}" class="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-bold hover:underline">📞 ${phone}</a>` : '<span class="text-slate-400">No phone</span>';
+
+        // 1. Scheduled Demos
+        if (stage === "Demo Scheduled" && r["Demo Date"] && r["Demo Date"] !== "N/A") {
+          demoCount++;
+          const dItem = document.createElement("div");
+          dItem.className = "p-3 hover:bg-amber-50/50 flex justify-between items-center text-xs";
+          dItem.innerHTML = `
+            <div>
+              <span class="font-bold text-slate-800">${r["School/Firm Name"]}</span>
+              <span class="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-mono font-bold">${r["School ID"] || ""}</span>
+              <p class="text-[11px] text-slate-500 mt-0.5">${callBtn} | Board: <b>${r["Board"]}</b></p>
+            </div>
+            <div class="text-right">
+              <span class="text-amber-800 font-bold block">${new Date(r["Demo Date"]).toLocaleString([], {dateStyle:'short', timeStyle:'short'})}</span>
+              <span class="text-emerald-700 text-[10px] font-semibold">₹ ${(parseFloat(r["Expected Value (₹)"])||0).toLocaleString()}</span>
+            </div>
+          `;
+          demoListContainer.appendChild(dItem);
+        }
+
+        // 2. Upcoming Follow-ups
+        if (r["Follow-Up Date"]) {
+          followupCount++;
+          const fItem = document.createElement("div");
+          fItem.className = "p-3 hover:bg-indigo-50/50 flex justify-between items-center text-xs";
+          fItem.innerHTML = `
+            <div>
+              <span class="font-bold text-slate-800">${r["School/Firm Name"]}</span>
+              <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono font-bold">${r["School ID"] || ""}</span>
+              <p class="text-[11px] text-slate-500 mt-0.5">${callBtn} | Met: <b>${r["Meeting Done With"]}</b></p>
+            </div>
+            <div class="text-right">
+              <span class="text-indigo-700 font-bold block">Follow-up: ${new Date(r["Follow-Up Date"]).toLocaleDateString()}</span>
+              <span class="text-slate-400 text-[10px]">Pincode: ${r["Pincode"] || "-"}</span>
+            </div>
+          `;
+          followupContainer.appendChild(fItem);
+        }
+
+        // 3. Detailed Table Row
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td class="p-3 text-slate-500">${visitDateObj ? visitDateObj.toLocaleDateString() : "-"}</td>
+          <td class="p-3 font-mono font-bold text-indigo-700">${r["School ID"] || "-"}</td>
+          <td class="p-3 font-medium text-slate-800">${r["School/Firm Name"] || "-"}</td>
+          <td class="p-3">${callBtn}</td>
+          <td class="p-3 text-slate-600">${r["Board"] || "CBSE"}</td>
+          <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-medium ${r["Meeting Done With"] === "No Meeting" ? "bg-red-50 text-red-700 font-semibold" : "bg-indigo-50 text-indigo-700 font-semibold"}">${r["Meeting Done With"]}</span></td>
+          <td class="p-3"><span class="bg-amber-50 text-amber-800 px-2 py-0.5 rounded text-[10px] font-semibold">${stage}</span></td>
+          <td class="p-3 font-bold text-emerald-700">₹ ${parseFloat(r["Total Claim (₹)"] || 0).toFixed(2)}</td>
+          <td class="p-3 space-x-1.5">
+            ${r["Location Link"] && r["Location Link"].indexOf("http") === 0 ? `<a href="${r["Location Link"]}" target="_blank" class="text-blue-600 font-semibold text-[11px] hover:underline">📍 Map</a>` : ""}
+            ${r["Opening KM Photo"] && r["Opening KM Photo"].indexOf("http") === 0 ? `<a href="${r["Opening KM Photo"]}" target="_blank" class="text-indigo-600 text-[11px] hover:underline">KM</a>` : ""}
+            ${r["Expense Receipts Photo"] && r["Expense Receipts Photo"].indexOf("http") === 0 ? `<a href="${r["Expense Receipts Photo"]}" target="_blank" class="text-purple-600 text-[11px] hover:underline">Bill</a>` : ""}
+          </td>
+        `;
+        repTbody.appendChild(row);
+      });
+
+      if (demoCount === 0) demoListContainer.innerHTML = `<p class="p-4 text-xs text-center text-slate-400">No scheduled demos pending.</p>`;
+      if (followupCount === 0) followupContainer.innerHTML = `<p class="p-4 text-xs text-center text-slate-400">No follow-ups recorded.</p>`;
+      if (myRecords.length === 0) repTbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-slate-400">No report records found.</td></tr>`;
+
+      document.getElementById("repVisitsToday").textContent = visitsToday;
+      document.getElementById("repTotalVisitsLabel").textContent = `Total visits logged: ${myRecords.length}`;
+      document.getElementById("repDemosCount").textContent = demosScheduled;
+      document.getElementById("repMeetingRatio").textContent = `${meetingsDone} / ${noMeetings}`;
+      document.getElementById("repClaimsTotal").textContent = `₹ ${totalClaims.toFixed(2)}`;
+      document.getElementById("repPipelineTotal").textContent = `Pipeline: ₹ ${totalPipeline.toLocaleString()}`;
+      document.getElementById("repDemoBadge").textContent = `${demoCount}`;
+      document.getElementById("repFollowupBadge").textContent = `${followupCount}`;
+    }
+
+    // --- MANAGER 360° COMMAND CENTER LOGIC ---
+    function renderManagerData() {
+      const filter = document.getElementById("managerFilterRep").value;
+      const filtered = filter === "ALL" ? globalRecords : globalRecords.filter(r => r["Rep Name"] === filter);
+
+      let totalVisits = filtered.length, totalMeetingsDone = 0, totalNoMeetings = 0, totalDemoSched = 0, totalDemoDone = 0, totalKmClaims = 0, totalGrandClaims = 0, totalPipelineVal = 0;
+
+      const repMap = {};
+      USERS.filter(u => !u.isManager || u.name === "Mazher" || u.name === "Deepinder Yadav").forEach(u => {
+        repMap[u.name] = { name: u.name, city: u.city, visits: 0, meetingsDone: 0, noMeetings: 0, demosSched: 0, demosDone: 0, pipeline: 0, claims: 0 };
+      });
+
+      const demoTableBody = document.getElementById("managerDemoBoardBody");
+      demoTableBody.innerHTML = "";
+      let scheduledDemosCount = 0;
+
+      const mainTableBody = document.getElementById("managerTableBody");
+      mainTableBody.innerHTML = "";
+
+      filtered.forEach((r, idx) => {
+        const rep = r["Rep Name"] || "Unknown";
+        const stage = r["Client Stage"] || "";
+        const meetingWith = r["Meeting Done With"] || "";
+        const claim = parseFloat(r["Total Claim (₹)"]) || 0;
+        const kmClaim = parseFloat(r["KM Claim (₹)"]) || 0;
+        const expVal = parseFloat(r["Expected Value (₹)"]) || 0;
+
+        totalKmClaims += kmClaim;
+        totalGrandClaims += claim;
+        totalPipelineVal += expVal;
+
+        if (meetingWith === "No Meeting") totalNoMeetings++; else totalMeetingsDone++;
+        if (stage === "Demo Scheduled") totalDemoSched++;
+        if (stage === "Demo Done") totalDemoDone++;
+
+        if (repMap[rep]) {
+          repMap[rep].visits++;
+          if (meetingWith === "No Meeting") repMap[rep].noMeetings++; else repMap[rep].meetingsDone++;
+          if (stage === "Demo Scheduled") repMap[rep].demosSched++;
+          if (stage === "Demo Done") repMap[rep].demosDone++;
+          repMap[rep].pipeline += expVal;
+          repMap[rep].claims += claim;
+        }
+
+        const phone = r["Contact Number"] || "";
+        const email = r["School Email"] || "";
+        const phoneLink = phone ? `<a href="tel:${phone}" class="text-indigo-600 font-bold hover:underline">📞 ${phone}</a>` : "-";
+        const emailLink = email ? `<a href="mailto:${email}" class="text-blue-600 font-medium hover:underline text-[11px] block">✉️ ${email}</a>` : "";
+
+        const schoolClickable = `<button onclick="openDetailModal(${idx})" class="font-bold text-indigo-700 hover:underline text-left">${r["School/Firm Name"] || "-"}</button>`;
+
+        // Scheduled Demo Board
+        if (stage === "Demo Scheduled" && r["Demo Date"] && r["Demo Date"] !== "N/A") {
+          scheduledDemosCount++;
+          const dRow = document.createElement("tr");
+          dRow.innerHTML = `
+            <td class="p-3 font-semibold text-amber-900">${new Date(r["Demo Date"]).toLocaleString([], {dateStyle:'short', timeStyle:'short'})}</td>
+            <td class="p-3 font-bold text-slate-800">${rep}</td>
+            <td class="p-3">${schoolClickable}</td>
+            <td class="p-3">${phoneLink}${emailLink}</td>
+            <td class="p-3"><span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-semibold">${r["Board"] || "CBSE"}</span></td>
+            <td class="p-3 text-emerald-700 font-bold">₹ ${expVal.toLocaleString()}</td>
+            <td class="p-3"><span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-bold">Demo Scheduled</span></td>
+          `;
+          demoTableBody.appendChild(dRow);
+        }
+
+        // All Visits Table
+        const mRow = document.createElement("tr");
+        mRow.innerHTML = `
+          <td class="p-3 font-mono font-bold text-indigo-700">${r["School ID"] || "-"}</td>
+          <td class="p-3 text-slate-500">${r["Timestamp"] ? new Date(r["Timestamp"]).toLocaleDateString() : "-"}</td>
+          <td class="p-3 font-semibold text-slate-800">${rep} <span class="text-[10px] text-slate-400">(${r["City"]})</span></td>
+          <td class="p-3">${schoolClickable}</td>
+          <td class="p-3">${phoneLink}${emailLink}</td>
+          <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-medium ${meetingWith === "No Meeting" ? "bg-red-50 text-red-700 font-semibold" : "bg-indigo-50 text-indigo-700 font-semibold"}">${meetingWith}</span></td>
+          <td class="p-3"><span class="bg-amber-50 text-amber-800 px-2 py-0.5 rounded text-[10px] font-semibold">${stage}</span></td>
+          <td class="p-3 font-bold text-slate-800">₹ ${claim.toFixed(2)}</td>
+          <td class="p-3 space-x-1">
+            ${r["Location Link"] && r["Location Link"].indexOf("http") === 0 ? `<a href="${r["Location Link"]}" target="_blank" class="text-blue-600 hover:underline font-semibold text-[11px]">📍 Map</a>` : ""}
+            ${r["Opening KM Photo"] && r["Opening KM Photo"].indexOf("http") === 0 ? `<a href="${r["Opening KM Photo"]}" target="_blank" class="text-indigo-600 hover:underline text-[11px]">KM</a>` : ""}
+            ${r["Front Photo"] && r["Front Photo"].indexOf("http") === 0 ? `<a href="${r["Front Photo"]}" target="_blank" class="text-slate-600 hover:underline text-[11px]">Front</a>` : ""}
+          </td>
+        `;
+        mainTableBody.appendChild(mRow);
+      });
+
+      if (scheduledDemosCount === 0) demoTableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">No upcoming demos scheduled.</td></tr>`;
+      if (filtered.length === 0) mainTableBody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-slate-400">No records found.</td></tr>`;
+
+      // Rep Matrix
+      const matrixBody = document.getElementById("managerRepMatrixBody");
+      matrixBody.innerHTML = "";
+      Object.values(repMap).forEach(repData => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td class="p-3 font-bold text-slate-800">${repData.name}</td>
+          <td class="p-3 text-slate-500">${repData.city}</td>
+          <td class="p-3 text-center font-semibold text-slate-700">${repData.visits}</td>
+          <td class="p-3 text-center font-bold text-emerald-700">${repData.meetingsDone}</td>
+          <td class="p-3 text-center font-bold text-red-600">${repData.noMeetings}</td>
+          <td class="p-3 text-center font-bold text-amber-700">${repData.demosSched}</td>
+          <td class="p-3 text-center font-bold text-indigo-700">${repData.demosDone}</td>
+          <td class="p-3 text-right font-semibold text-slate-800">₹ ${repData.pipeline.toLocaleString()}</td>
+          <td class="p-3 text-right font-bold text-purple-700">₹ ${repData.claims.toFixed(2)}</td>
+        `;
+        matrixBody.appendChild(row);
+      });
+
+      document.getElementById("kpiVisits").textContent = totalVisits;
+      document.getElementById("kpiMeetingRatio").textContent = `${totalMeetingsDone} / ${totalNoMeetings}`;
+      document.getElementById("kpiDemos").textContent = `${totalDemoSched} / ${totalDemoDone}`;
+      document.getElementById("kpiPipelineVal").textContent = `₹ ${totalPipelineVal.toLocaleString()}`;
+      document.getElementById("kpiKmClaim").textContent = `₹ ${totalKmClaims.toFixed(2)}`;
+      document.getElementById("kpiGrandTotal").textContent = `₹ ${totalGrandClaims.toFixed(2)}`;
+      document.getElementById("managerDemoCountBadge").textContent = `${scheduledDemosCount} Demos`;
+    }
+
+    // --- MANAGER DETAIL INSPECTION MODAL LOGIC ---
+    function openDetailModal(recordIdx) {
+      const r = globalRecords[recordIdx];
+      if (!r) return;
+
+      document.getElementById("modalSchoolId").textContent = r["School ID"] || "ID-PENDING";
+      document.getElementById("modalSchoolName").textContent = r["School/Firm Name"] || "Unknown School";
+      document.getElementById("modalLocationSubtitle").textContent = `${r["City"] || ""} (Pincode: ${r["Pincode"] || ""}) | Logged by ${r["Rep Name"] || ""} on ${new Date(r["Timestamp"]).toLocaleDateString()}`;
+
+      document.getElementById("modalBoard").textContent = r["Board"] || "CBSE";
+      
+      const phone = r["Contact Number"] || "";
+      document.getElementById("modalContact").innerHTML = phone ? `<a href="tel:${phone}" class="hover:underline font-bold">📞 ${phone}</a>` : "Not Provided";
+      
+      const email = r["School Email"] || "";
+      document.getElementById("modalEmail").innerHTML = email ? `<a href="mailto:${email}" class="hover:underline text-blue-700 font-bold">✉️ ${email}</a>` : "Not Provided";
+
+      document.getElementById("modalStage").textContent = r["Client Stage"] || "New Prospect";
+      document.getElementById("modalMeetingWith").textContent = r["Meeting Done With"] || "-";
+      document.getElementById("modalExpectedValue").textContent = `₹ ${(parseFloat(r["Expected Value (₹)"])||0).toLocaleString()}`;
+
+      document.getElementById("modalTotalStudents").textContent = r["Total Strength"] || "0";
+      document.getElementById("modalStrength610").textContent = r["Strength 6-10th"] || "0";
+      document.getElementById("modalStrength1112").textContent = r["Strength 11-12th"] || "0";
+      document.getElementById("modalGrades").textContent = r["Selected Grades"] || "-";
+      document.getElementById("modalCompetitor").textContent = r["Competitor Books"] || "None mentioned";
+
+      document.getElementById("modalRemarks").textContent = r["Meeting Remarks"] || "No remarks provided.";
+      document.getElementById("modalFollowupDate").textContent = r["Follow-Up Date"] ? new Date(r["Follow-Up Date"]).toLocaleDateString() : "None set";
+      document.getElementById("modalDemoDate").textContent = r["Demo Date"] && r["Demo Date"] !== "N/A" ? new Date(r["Demo Date"]).toLocaleString([], {dateStyle:'short', timeStyle:'short'}) : "Not scheduled";
+
+      // Attached Photos
+      const gallery = document.getElementById("modalPhotoGallery");
+      gallery.innerHTML = "";
+
+      const photos = [
+        { title: "Opening KM", url: r["Opening KM Photo"] },
+        { title: "Closing KM", url: r["Closing KM Photo"] },
+        { title: "Expense Bill", url: r["Expense Receipts Photo"] },
+        { title: "School Front", url: r["Front Photo"] }
+      ];
+
+      photos.forEach(p => {
+        if (p.url && p.url.indexOf("http") === 0) {
+          const div = document.createElement("div");
+          div.className = "border rounded-lg overflow-hidden bg-slate-100 text-center p-1";
+          div.innerHTML = `
+            <a href="${p.url}" target="_blank" class="block">
+              <img src="${p.url}" class="h-20 w-full object-cover rounded mb-1 hover:opacity-80" alt="${p.title}" />
+              <span class="text-[10px] font-bold text-indigo-700">${p.title} ↗</span>
+            </a>
+          `;
+          gallery.appendChild(div);
+        }
+      });
+
+      if (gallery.children.length === 0) {
+        gallery.innerHTML = `<p class="text-slate-400 text-xs italic col-span-3">No photos attached for this visit.</p>`;
+      }
+
+      const mapContainer = document.getElementById("modalLocationLinkContainer");
+      if (r["Location Link"] && r["Location Link"].indexOf("http") === 0) {
+        mapContainer.innerHTML = `<a href="${r["Location Link"]}" target="_blank" class="bg-blue-600 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 shadow hover:bg-blue-700">📍 Open GPS Location in Google Maps</a>`;
+      } else {
+        mapContainer.innerHTML = `<span class="text-slate-400 text-xs italic">No GPS coordinates recorded</span>`;
+      }
+
+      document.getElementById("schoolDetailModal").classList.remove("hidden");
+    }
+
+    function closeDetailModal() {
+      document.getElementById("schoolDetailModal").classList.add("hidden");
+    }
+
+    function exportRepCSV() {
+      if (!globalRecords || globalRecords.length === 0) {
+        alert("No records found to export.");
+        return;
+      }
+      const myRecords = globalRecords.filter(r => r["Rep Name"] === currentUser.name);
+      if (myRecords.length === 0) {
+        alert("No visit records submitted yet.");
+        return;
+      }
+      triggerCSVDownload(myRecords, `${currentUser.name}_Visits_Claims_${new Date().toISOString().slice(0, 10)}.csv`);
+    }
+
+    function exportToCSV() {
+      if (globalRecords.length === 0) {
+        alert("No records to export.");
+        return;
+      }
+      triggerCSVDownload(globalRecords, `Full_Team_Sales_Expenses_${new Date().toISOString().slice(0,10)}.csv`);
+    }
+
+    function triggerCSVDownload(records, filename) {
+      const headers = Object.keys(records[0]);
+      const csvRows = [headers.join(",")];
+      records.forEach(row => {
+        const values = headers.map(header => {
+          const val = row[header] !== undefined && row[header] !== null ? row[header] : "";
+          const escaped = ('' + val).replace(/"/g, '""');
+          return `"${escaped}"`;
+        });
+        csvRows.push(values.join(","));
+      });
+      const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.setAttribute("href", url);
+      a.setAttribute("download", filename);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  </script>
+</body>
+</html>
